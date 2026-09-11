@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Inflation Disconnect</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="data/data.js"></script>
+<style>
+  :root {
+    --bg: #fbf7f1;
+    --ink: #1a1a1a;
+    --ink-2: #3a3a3a;
+    --mute: #6b6b6b;
+    --rule: #e4dfd6;
+    --grid: #ece7dd;
+    --line: #8a8680;
+    --accent: #a8261e;
+    --accent-soft: #a8261e22;
+    --accent-mid: #a8261e55;
+    --warm-1: #d97a2f;   /* gas orange */
+    --warm-2: #b85a2e;   /* used cars */
+    --warm-3: #c0805e;   /* beef */
+    --warm-4: #b8a06f;   /* food at home */
+    --cool-1: #4a7a8a;   /* rent */
+    --cool-2: #6f9aa8;   /* electricity */
+    --wage:   #2f6f4f;   /* wages green */
+    --bar-warm: #7a6f62; /* chart 7 bars */
+    --cum-bg:  #d8d3c8;  /* chart 7 cumulative background */
+    --panel-rule: #e4dfd6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1917;
+      --ink: #e8e4dc;
+      --ink-2: #c8c4bc;
+      --mute: #8a8680;
+      --rule: #2f2d28;
+      --grid: #2a2825;
+      --line: #9a9690;
+      --accent: #c43028;
+      --accent-soft: #c4302830;
+      --accent-mid: #c4302860;
+      --warm-1: #e8923f;
+      --warm-2: #d4714a;
+      --warm-3: #d89878;
+      --warm-4: #c8b080;
+      --cool-1: #6a9aaa;
+      --cool-2: #8ab4c0;
+      --wage:   #4a9a6f;
+      --bar-warm: #8a8070;
+      --cum-bg:  #3a3630;
+      --panel-rule: #2f2d28;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1917;
+    --ink: #e8e4dc;
+    --ink-2: #c8c4bc;
+    --mute: #8a8680;
+    --rule: #2f2d28;
+    --grid: #2a2825;
+    --line: #9a9690;
+    --accent: #c43028;
+    --accent-soft: #c4302830;
+    --accent-mid: #c4302860;
+    --warm-1: #e8923f;
+    --warm-2: #d4714a;
+    --warm-3: #d89878;
+    --warm-4: #c8b080;
+    --cool-1: #6a9aaa;
+    --cool-2: #8ab4c0;
+    --wage:   #4a9a6f;
+    --bar-warm: #8a8070;
+    --cum-bg:  #3a3630;
+    --panel-rule: #2f2d28;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 780px; margin: 0 auto; padding: 56px 24px 96px; }
+  header { border-bottom: 1px solid var(--rule); padding-bottom: 28px; margin-bottom: 40px; position: relative; }
+  .kicker {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 14px;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 700; font-size: 44px; line-height: 1.1;
+    letter-spacing: -0.01em; margin: 0 0 18px; color: var(--ink);
+  }
+  .deck {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px; line-height: 1.45;
+    color: var(--ink-2); font-style: italic;
+    margin: 0; max-width: 60ch;
+  }
+  section { margin: 64px 0 0; scroll-margin-top: 24px; }
+  section + section { border-top: 1px solid var(--rule); padding-top: 56px; }
+  section h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 24px; font-weight: 700;
+    margin: 0 0 6px; letter-spacing: -0.005em;
+  }
+  section .sub {
+    font-size: 14px; color: var(--ink-2);
+    margin: 0 0 22px; letter-spacing: 0.01em;
+  }
+  .chart { width: 100%; }
+  .chart svg {
+    width: 100%; height: auto; display: block; overflow: visible;
+  }
+  .axis path, .axis line { stroke: var(--grid); shape-rendering: crispEdges; }
+  .axis text { fill: var(--mute); font-size: 11px; font-family: inherit; }
+  .axis-left text { fill: var(--line); }
+  .axis-right text { fill: var(--accent); }
+  .axis-title {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 600;
+  }
+  .grid line { stroke: var(--grid); stroke-dasharray: 2 3; }
+  .grid path { stroke: none; }
+  .yoy-line { fill: none; stroke: var(--line); stroke-width: 1.25; }
+  .cum-area { fill: var(--accent-soft); }
+  .cum-line {
+    fill: none; stroke: var(--accent); stroke-width: 2.6;
+    stroke-linejoin: round; stroke-linecap: round;
+  }
+  .pp-line { fill: none; stroke: var(--accent); stroke-width: 2.6; }
+  .pp-area { fill: var(--accent-soft); }
+  .annot-line { stroke: var(--ink); stroke-width: 0.8; stroke-dasharray: 2 2; }
+  .annot-dot { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
+  .annot-box { font-size: 11.5px; fill: var(--ink); line-height: 1.35; }
+  .annot-box .title { font-weight: 700; font-size: 12px; }
+  .bar { fill: var(--accent); }
+  .bar.dim { fill: var(--accent-mid); }
+  .bar-label {
+    font-size: 11px; fill: var(--ink); font-weight: 600; text-anchor: middle;
+  }
+  .bar-xlabel { font-size: 11px; fill: var(--mute); text-anchor: middle; }
+  .callout { font-size: 12px; fill: var(--ink); }
+  .callout .big {
+    font-family: Georgia, serif; font-size: 22px; font-weight: 700;
+  }
+  .era-label {
+    font-size: 10.5px; fill: var(--mute);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .era-rule { stroke: var(--mute); stroke-width: 0.6; }
+
+  /* chart 5: categories */
+  .cat-line { fill: none; stroke-width: 1.6; }
+  .cat-line.headline { stroke: var(--mute); stroke-width: 2.4; stroke-dasharray: 4 3; }
+  .cat-label {
+    font-size: 11px; font-weight: 600; alignment-baseline: middle;
+  }
+
+  /* chart 6: wages */
+  .wage-line { fill: none; stroke: var(--wage); stroke-width: 2.6; }
+  .price-line { fill: none; stroke: var(--accent); stroke-width: 2.6; }
+
+  /* chart 7: small multiples */
+  .panel-title {
+    font-family: Georgia, serif; font-weight: 700; font-size: 14px; fill: var(--ink);
+  }
+  .panel-bar { fill: var(--bar-warm); }
+  .panel-cum-bg { fill: none; stroke: var(--cum-bg); stroke-width: 1.5; }
+  .panel-cum-fg { fill: none; stroke: var(--accent); stroke-width: 2.6; }
+  .panel-axis text { font-size: 9px; fill: var(--mute); }
+  .panel-axis line, .panel-axis path { stroke: var(--panel-rule); }
+  .panel-divider { stroke: var(--rule); stroke-width: 0.6; }
+  .panel-sublabel {
+    font-size: 9px; fill: var(--mute);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .theme-toggle {
+    position: absolute; top: 0; right: 0;
+    background: none; border: 1px solid var(--rule);
+    border-radius: 6px; padding: 6px 12px;
+    font-size: 12px; color: var(--mute); cursor: pointer;
+    font-family: inherit; letter-spacing: 0.02em;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .theme-toggle:hover { color: var(--ink); border-color: var(--mute); }
+
+  footer {
+    margin-top: 72px; padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--mute);
+  }
+  .footnote {
+    font-size: 12px; color: var(--mute);
+    line-height: 1.45; margin: 10px 0 0; max-width: 60ch;
+  }
+  .footnote + .footnote { margin-top: 4px; }
+  @media (max-width: 560px) {
+    main { padding: 36px 18px 72px; }
+    h1 { font-size: 32px; }
+    .deck { font-size: 17px; }
+    section h2 { font-size: 20px; }
+    .axis text { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+    <div class="kicker">US CPI-U &middot; 1990–2026 &middot; updated September 10, 2026</div>
+    <h1>The headline is not the toll.</h1>
+    <p class="deck">Inflation is reported as a small monthly percentage. It accumulates as something much larger.</p>
+  </header>
+
+  <section>
+    <h2>1. What gets announced vs. what gets paid.</h2>
+    <p class="sub">Year-over-year CPI (gray, left axis) is the headline. Cumulative inflation since January 2020 (red, right axis) is the bill.</p>
+    <div class="chart" id="chart1"></div>
+    <p class="footnote">October 2025 CPI data unavailable (2025 government shutdown); interpolated for visual continuity.</p>
+  </section>
+
+  <section>
+    <h2>2. What $100 in January 2020 is worth now</h2>
+    <p class="sub">Real purchasing power of a dollar held since the start of 2020.</p>
+    <div class="chart" id="chart2"></div>
+  </section>
+
+  <section>
+    <h2>3. What each year added</h2>
+    <p class="sub">Percentage points contributed to the running cumulative total since Jan 2020.</p>
+    <div class="chart" id="chart3"></div>
+    <p class="footnote">2026 reflects January–July only.</p>
+    <p class="footnote">Bars show percentage points added to the cumulative total, not that year's annual inflation rate. They differ because each year's increase is applied to a higher base.</p>
+  </section>
+
+  <section>
+    <h2>4. The long view</h2>
+    <p class="sub">The same chart, pushed back to 2016. Four years of "boring" 1–2% inflation built up less than 10% of cumulative change. The next four built 22%.</p>
+    <div class="chart" id="chart4"></div>
+    <p class="footnote">October 2025 CPI data unavailable (2025 government shutdown); interpolated for visual continuity.</p>
+  </section>
+
+  <section>
+    <h2>5. Not all prices are equal</h2>
+    <p class="sub">Selected categories vs. headline CPI, all indexed to 100 at January 2020. The "average" hides what people actually feel.</p>
+    <div class="chart" id="chart5"></div>
+    <p class="footnote">October 2025 CPI data unavailable (2025 government shutdown); interpolated per-series for visual continuity.</p>
+    <p class="footnote">Sources: BLS via FRED. Eggs (Grade A large, $/dozen, APU0000708111) and ground beef ($/lb, APU0000703112) are average retail prices, not CPI sub-indexes; both are renormalized to 100 at Jan 2020 so they're directly comparable on this scale. Gasoline series is all-grade, all-formulation (CUUR0000SETB01). Categories: rent of primary residence, electricity, used cars and trucks, food at home.</p>
+  </section>
+
+  <section>
+    <h2>6. Wages vs. prices</h2>
+    <p class="sub">Cumulative growth in average hourly earnings against cumulative CPI, both indexed to 100 at January 2020.</p>
+    <div class="chart" id="chart6"></div>
+    <p class="footnote">October 2025 CPI data unavailable (2025 government shutdown); interpolated for visual continuity.</p>
+    <p class="footnote">This is nominal average hourly earnings for all private employees (BLS CES0500000003). Other wage measures (median weekly earnings, ECI, lower-quartile wages) tell somewhat different stories.</p>
+  </section>
+
+  <section>
+    <h2>7. Feels vs. is</h2>
+    <p class="sub">Each year, the headline number cooled or stayed low. Each year, the cumulative line kept climbing.</p>
+    <div class="chart" id="chart7"></div>
+    <p class="footnote">October 2025 CPI data unavailable (2025 government shutdown); interpolated for visual continuity in the 2025 panel.</p>
+    <p class="footnote">Top of each panel: that year's monthly year-over-year CPI prints. Bottom: cumulative price level since January 2020, with that year's contribution highlighted. Y-axes are shared across panels.</p>
+  </section>
+
+  <section>
+    <h2>8. The reset that never came</h2>
+    <p class="sub">$100 held in January 1990, in real terms, through today.</p>
+    <div class="chart" id="chart8"></div>
+    <p class="footnote">Source: BLS CPI-U (CPIAUCNS) via FRED, monthly, not seasonally adjusted, 1990 → July 2026. Inflation is constant background erosion, not an event — the 2021–2022 spike just made the slope briefly visible.</p>
+  </section>
+
+  <footer>
+    Sources: US Bureau of Labor Statistics CPI-U and CES series, accessed via FRED (Federal Reserve Bank of St. Louis). All series not seasonally adjusted unless noted. October 2025 omitted where missing (2025 government shutdown). Last updated September 10, 2026.
+  </footer>
+</main>
+
+<script>
+// per-chart isolation for screenshot tooling (only active with hash)
+if (location.hash.startsWith("#only-")) {
+  const id = location.hash.slice(6);
+  addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll("section").forEach(s => {
+      if (!s.querySelector("#" + id)) s.style.display = "none";
+    });
+    const h = document.querySelector("header");
+    const f = document.querySelector("footer");
+    if (h) h.style.display = "none";
+    if (f) f.style.display = "none";
+    document.querySelector("main").style.padding = "24px";
+  });
+}
+
+// Theme toggle
+(function initTheme() {
+  const btn = document.getElementById("themeToggle");
+  if (!btn) return;
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme")
+      || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  }
+  function updateLabel() {
+    btn.textContent = currentTheme() === "dark" ? "Light mode" : "Dark mode";
+  }
+  try {
+    const saved = localStorage.getItem("theme");
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) {}
+  updateLabel();
+  btn.addEventListener("click", () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    updateLabel();
+  });
+})();
+
+// Read CSS variable as resolved color for use in D3 attr() calls
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+const parseMonth = d3.timeParse("%Y-%m");
+const fmtMonth = d3.timeFormat("%Y-%m");
+
+// =========================================================================
+// Helpers — derive whatever each chart needs from raw [["YYYY-MM", v], ...]
+// =========================================================================
+
+// Decorate raw CPI series with date object, yoy %, and cumulative % vs Jan 2016 + Jan 2020
+function decorateCpi(rawArr) {
+  const byDate = new Map(rawArr);
+  const base16 = byDate.get("2016-01");
+  const base20 = byDate.get("2020-01");
+  return rawArr.map(([ym, v]) => {
+    const [y, m] = ym.split("-").map(Number);
+    const prevYm = `${y-1}-${String(m).padStart(2, "0")}`;
+    const prev = byDate.get(prevYm);
+    return {
+      date: parseMonth(ym),
+      ym,
+      cpi: v,
+      yoy: (v != null && prev != null) ? +(((v / prev) - 1) * 100).toFixed(1) : null,
+      cum16: (v != null && base16) ? +(((v / base16) - 1) * 100).toFixed(2) : null,
+      cum20: (v != null && base20) ? +(((v / base20) - 1) * 100).toFixed(2) : null,
+    };
+  });
+}
+
+// Linearly interpolate null entries for rendering only. Returns a copy.
+// Does NOT mutate input. Any interpolated row is flagged with _interp=true
+// so downstream code (annotations, labels) can skip it if desired.
+function fillGaps(rows, keys) {
+  const out = rows.map(r => ({ ...r }));
+  keys.forEach(key => {
+    for (let i = 0; i < out.length; i++) {
+      if (out[i][key] == null) {
+        let p = i - 1;
+        while (p >= 0 && out[p][key] == null) p--;
+        let n = i + 1;
+        while (n < out.length && out[n][key] == null) n++;
+        if (p >= 0 && n < out.length) {
+          const t = (i - p) / (n - p);
+          out[i][key] = out[p][key] * (1 - t) + out[n][key] * t;
+        } else if (p >= 0) {
+          out[i][key] = out[p][key];
+        } else if (n < out.length) {
+          out[i][key] = out[n][key];
+        }
+        if (out[i][key] != null) out[i]._interp = true;
+      }
+    }
+  });
+  return out;
+}
+
+// Index any [["YYYY-MM", v]] series to 100 at baseYm. Returns [{date, ym, v}].
+function indexTo100(rawArr, baseYm) {
+  const byDate = new Map(rawArr);
+  const base = byDate.get(baseYm);
+  if (base == null) throw new Error("no baseline value at " + baseYm);
+  return rawArr.map(([ym, v]) => ({
+    date: parseMonth(ym),
+    ym,
+    v: v != null ? (v / base) * 100 : null,
+  }));
+}
+
+// Build the full decorated CPI series ONCE — every CPI chart slices from this.
+const ALLCPI = decorateCpi(DATA.cpi_1990);
+
+// =========================================================================
+// drawDualAxis — used by charts 1 and 4
+// =========================================================================
+function drawDualAxis({
+  selector, data, xDomain, cumField, cumMax,
+  annotations, eraMark, yLmin = 0, yLmax = 10, yLTicks = null,
+}) {
+  // Render-time gap fill for continuous paths (Oct 2025 shutdown etc.).
+  // Source data in data.js is untouched.
+  data = fillGaps(data, ["yoy", cumField]);
+
+  const W = 760, H = 460;
+  const m = { top: 34, right: 130, bottom: 42, left: 56 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+
+  const svg = d3.select(selector).append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+  const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+
+  const x = d3.scaleTime().domain(xDomain).range([0, iw]);
+  const yL = d3.scaleLinear().domain([yLmin, yLmax]).range([ih, 0]);
+  const yR = d3.scaleLinear().domain([0, cumMax]).nice().range([ih, 0]);
+
+  if (yLmin < 0) {
+    g.append("line")
+      .attr("x1", 0).attr("x2", iw)
+      .attr("y1", yL(0)).attr("y2", yL(0))
+      .attr("stroke", "var(--line)").attr("stroke-width", 0.6)
+      .attr("stroke-dasharray", "2 2").attr("opacity", 0.6);
+  }
+
+  g.append("g").attr("class", "grid")
+    .call(d3.axisLeft(yR).tickSize(-iw).tickFormat("").ticks(6))
+    .selectAll("line").attr("stroke", "var(--grid)");
+
+  const area = d3.area()
+    .defined(d => d[cumField] !== null)
+    .x(d => x(d.date)).y0(ih).y1(d => yR(d[cumField]));
+  const cumLine = d3.line()
+    .defined(d => d[cumField] !== null)
+    .x(d => x(d.date)).y(d => yR(d[cumField]));
+
+  g.append("path").datum(data).attr("class", "cum-area").attr("d", area);
+  g.append("path").datum(data).attr("class", "cum-line").attr("d", cumLine);
+
+  const yoyLine = d3.line()
+    .defined(d => d.yoy !== null)
+    .x(d => x(d.date)).y(d => yL(d.yoy));
+  g.append("path").datum(data).attr("class", "yoy-line").attr("d", yoyLine);
+
+  g.append("g").attr("class", "axis")
+    .attr("transform", `translate(0,${ih})`)
+    .call(d3.axisBottom(x).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("%Y")).tickSize(4));
+
+  let leftAxis = d3.axisLeft(yL).tickFormat(d => d + "%").tickSize(0);
+  if (yLTicks) leftAxis = leftAxis.tickValues(yLTicks);
+  else leftAxis = leftAxis.ticks(5);
+  g.append("g").attr("class", "axis axis-left").call(leftAxis)
+    .call(sel => sel.select(".domain").remove());
+
+  g.append("text").attr("class", "axis-title")
+    .attr("fill", "var(--line)").attr("x", 0).attr("y", -14).text("YoY %");
+
+  g.append("g").attr("class", "axis axis-right")
+    .attr("transform", `translate(${iw},0)`)
+    .call(d3.axisRight(yR).ticks(6).tickFormat(d => d + "%").tickSize(0))
+    .call(sel => sel.select(".domain").remove());
+
+  g.append("text").attr("class", "axis-title")
+    .attr("fill", "var(--accent)").attr("text-anchor", "end")
+    .attr("x", iw).attr("y", -14).text("Cumulative %");
+
+  if (eraMark) {
+    const xm = x(eraMark.date);
+    g.append("line").attr("class", "era-rule")
+      .attr("x1", xm).attr("x2", xm).attr("y1", 0).attr("y2", ih);
+    g.append("text").attr("class", "era-label")
+      .attr("x", xm - 6).attr("y", 14).attr("text-anchor", "end")
+      .text(eraMark.leftLabel);
+    g.append("text").attr("class", "era-label")
+      .attr("x", xm + 6).attr("y", 14).attr("text-anchor", "start")
+      .text(eraMark.rightLabel);
+  }
+
+  const annotG = g.append("g").attr("class", "annots");
+  annotations.forEach(a => {
+    const d = data.find(r => r.ym === a.ym);
+    if (!d) return;
+    const cx = x(d.date);
+    const cy = a.on === "yoy" ? yL(d.yoy) : yR(d[cumField]);
+    const tx = cx + a.dx;
+    const ty = cy + a.dy;
+
+    annotG.append("line").attr("class", "annot-line")
+      .attr("x1", cx).attr("y1", cy).attr("x2", tx).attr("y2", ty);
+    annotG.append("circle").attr("class", "annot-dot")
+      .attr("cx", cx).attr("cy", cy).attr("r", 4);
+
+    const text = annotG.append("text").attr("class", "annot-box")
+      .attr("x", tx + (a.anchor === "end" ? -6 : 6))
+      .attr("y", ty)
+      .attr("text-anchor", a.anchor || "start");
+    text.append("tspan").attr("class", "title")
+      .attr("x", tx + (a.anchor === "end" ? -6 : 6)).attr("dy", 0).text(a.title);
+    a.body.forEach((line, i) => {
+      text.append("tspan")
+        .attr("x", tx + (a.anchor === "end" ? -6 : 6))
+        .attr("dy", i === 0 ? 15 : 14)
+        .attr("fill", "var(--ink-2)").text(line);
+    });
+  });
+}
+
+// =========================================================================
+// Chart 1 — dual axis, Jan 2020 → Jul 2026
+// =========================================================================
+drawDualAxis({
+  selector: "#chart1",
+  data: ALLCPI.filter(d => d.ym >= "2020-01"),
+  xDomain: [parseMonth("2020-01"), parseMonth("2026-07")],
+  cumField: "cum20",
+  cumMax: 32,
+  annotations: [
+    {
+      ym: "2022-06", on: "yoy",
+      dx: -55, dy: -20, anchor: "end",
+      title: "June 2022",
+      body: ["Headline peak: 9.1%", "Cumulative: 14.9%"],
+    },
+    {
+      ym: "2023-06", on: "yoy",
+      dx: 40, dy: 60, anchor: "start",
+      title: "June 2023",
+      body: ["Headline cools to 3.0%", "Cumulative: 18.3% and climbing"],
+    },
+    {
+      ym: "2026-07", on: "yoy",
+      dx: 42, dy: 0, anchor: "start",
+      title: "July 2026",
+      body: ["Headline: 3.4%", "Cumulative: 29.4%"],
+    },
+  ],
+});
+
+// =========================================================================
+// Chart 2 — purchasing power of $100 since Jan 2020
+// =========================================================================
+(function chart2() {
+  const data = ALLCPI
+    .filter(d => d.ym >= "2020-01" && d.cum20 !== null)
+    .map(d => ({ date: d.date, ym: d.ym, pp: 100 / (1 + d.cum20 / 100) }));
+
+  const W = 760, H = 340;
+  const m = { top: 30, right: 90, bottom: 42, left: 56 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+
+  const svg = d3.select("#chart2").append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+  const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+
+  const x = d3.scaleTime()
+    .domain([parseMonth("2020-01"), parseMonth("2026-07")])
+    .range([0, iw]);
+  const y = d3.scaleLinear().domain([74, 101]).range([ih, 0]);
+
+  g.append("g").attr("class", "grid")
+    .call(d3.axisLeft(y).tickSize(-iw).tickFormat("").ticks(5))
+    .selectAll("line").attr("stroke", "var(--grid)");
+
+  const area = d3.area().x(d => x(d.date)).y0(ih).y1(d => y(d.pp));
+  const line = d3.line().x(d => x(d.date)).y(d => y(d.pp));
+  g.append("path").datum(data).attr("class", "pp-area").attr("d", area);
+  g.append("path").datum(data).attr("class", "pp-line").attr("d", line);
+
+  g.append("g").attr("class", "axis")
+    .attr("transform", `translate(0,${ih})`)
+    .call(d3.axisBottom(x).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("%Y")));
+
+  g.append("g").attr("class", "axis")
+    .call(d3.axisLeft(y).ticks(5).tickFormat(d => "$" + d).tickSize(0))
+    .call(sel => sel.select(".domain").remove());
+
+  const first = data[0];
+  const last = data[data.length - 1];
+
+  g.append("circle").attr("cx", x(first.date)).attr("cy", y(first.pp))
+    .attr("r", 4).attr("fill", "var(--accent)");
+  g.append("circle").attr("cx", x(last.date)).attr("cy", y(last.pp))
+    .attr("r", 4).attr("fill", "var(--accent)");
+
+  const startLabel = g.append("text").attr("class", "callout")
+    .attr("x", x(first.date) + 42).attr("y", y(first.pp) - 20);
+  startLabel.append("tspan").attr("class", "big").text("$100.00");
+  startLabel.append("tspan")
+    .attr("x", x(first.date) + 42).attr("dy", 14)
+    .attr("fill", "var(--mute)").text("January 2020");
+
+  const endLabel = g.append("text").attr("class", "callout")
+    .attr("x", x(last.date) + 10).attr("y", y(last.pp) + 4);
+  endLabel.append("tspan").attr("class", "big").text("$" + last.pp.toFixed(2));
+  endLabel.append("tspan")
+    .attr("x", x(last.date) + 10).attr("dy", 14)
+    .attr("fill", "var(--mute)").text("July 2026");
+})();
+
+// =========================================================================
+// Chart 3 — annual contribution bars
+// =========================================================================
+(function chart3() {
+  const cumAt = (ym) => {
+    const row = ALLCPI.find(r => r.ym === ym);
+    return row ? row.cum20 : null;
+  };
+  const years = [
+    { label: "2020",     endYm: "2020-12" },
+    { label: "2021",     endYm: "2021-12" },
+    { label: "2022",     endYm: "2022-12" },
+    { label: "2023",     endYm: "2023-12" },
+    { label: "2024",     endYm: "2024-12" },
+    { label: "2025",     endYm: "2025-12" },
+    { label: "2026 YTD", endYm: "2026-07", dim: true },
+  ];
+  let prev = 0;
+  const bars = years.map(yr => {
+    const end = cumAt(yr.endYm);
+    const added = end - prev;
+    prev = end;
+    return { label: yr.label, added, dim: !!yr.dim };
+  });
+
+  const W = 760, H = 340;
+  const m = { top: 34, right: 24, bottom: 46, left: 48 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+
+  const svg = d3.select("#chart3").append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+  const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+
+  const x = d3.scaleBand().domain(bars.map(b => b.label)).range([0, iw]).padding(0.32);
+  const y = d3.scaleLinear().domain([0, 8]).nice().range([ih, 0]);
+
+  g.append("g").attr("class", "grid")
+    .call(d3.axisLeft(y).tickSize(-iw).tickFormat("").ticks(5))
+    .selectAll("line").attr("stroke", "var(--grid)");
+
+  g.selectAll(".bar").data(bars).enter().append("rect")
+    .attr("class", d => "bar" + (d.dim ? " dim" : ""))
+    .attr("x", d => x(d.label)).attr("width", x.bandwidth())
+    .attr("y", d => y(d.added)).attr("height", d => ih - y(d.added));
+  g.selectAll(".bar-label").data(bars).enter().append("text")
+    .attr("class", "bar-label")
+    .attr("x", d => x(d.label) + x.bandwidth() / 2)
+    .attr("y", d => y(d.added) - 6)
+    .text(d => "+" + d.added.toFixed(1) + " pp");
+  g.selectAll(".bar-xlabel").data(bars).enter().append("text")
+    .attr("class", "bar-xlabel")
+    .attr("x", d => x(d.label) + x.bandwidth() / 2)
+    .attr("y", ih + 18).text(d => d.label);
+
+  g.append("g").attr("class", "axis")
+    .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + " pp").tickSize(0))
+    .call(sel => sel.select(".domain").remove());
+  g.append("text").attr("class", "axis-title").attr("fill", "var(--mute)")
+    .attr("x", 0).attr("y", -14)
+    .text("Percentage points added to cumulative total");
+})();
+
+// =========================================================================
+// Chart 4 — long view back to 2016
+// =========================================================================
+drawDualAxis({
+  selector: "#chart4",
+  data: ALLCPI.filter(d => d.ym >= "2016-01"),
+  xDomain: [parseMonth("2016-01"), parseMonth("2026-07")],
+  cumField: "cum16",
+  cumMax: 45,
+  yLmin: -1, yLmax: 10,
+  yLTicks: [-1, 0, 2, 4, 6, 8, 10],
+  eraMark: {
+    date: parseMonth("2020-01"),
+    leftLabel: "Pre-2020", rightLabel: "Post-2020",
+  },
+  annotations: [
+    {
+      ym: "2017-06", on: "yoy",
+      dx: -35, dy: -55, anchor: "end",
+      title: "Four years, +8.5%",
+      body: ["2016 → 2019: headline ran", "a steady 1–2% YoY"],
+    },
+    {
+      ym: "2022-06", on: "yoy",
+      dx: 20, dy: -10, anchor: "start",
+      title: "Shock",
+      body: ["YoY peaks at 9.1%", "cumulative jumps to 25%"],
+    },
+    {
+      ym: "2026-07", on: "yoy",
+      dx: 42, dy: 18, anchor: "start",
+      title: "Jul 2026: +40.9%",
+      body: ["since 2016 — over", "40% higher, total"],
+    },
+  ],
+});
+
+// =========================================================================
+// Chart 5 — categories vs headline
+// =========================================================================
+(function chart5() {
+  const baseYm = "2020-01";
+  // Render-time gap fill per-series — Oct 2025 is null in several category CSVs.
+  const idx = (arr) => fillGaps(indexTo100(arr, baseYm), ["v"]);
+  const headline = idx(DATA.cpi_2016.filter(([ym]) => ym >= "2020-01"));
+  const cats = [
+    { key: "eggs", label: "Eggs",            color: cssVar("--accent"), series: idx(DATA.categories.eggs) },
+    { key: "gas",  label: "Gasoline",        color: "var(--warm-1)", series: idx(DATA.categories.gas)  },
+    { key: "used", label: "Used cars",       color: "var(--warm-2)", series: idx(DATA.categories.used) },
+    { key: "beef", label: "Ground beef",     color: "var(--warm-3)", series: idx(DATA.categories.beef) },
+    { key: "food", label: "Food at home",    color: "var(--warm-4)", series: idx(DATA.categories.food) },
+    { key: "rent", label: "Rent",            color: "var(--cool-1)", series: idx(DATA.categories.rent) },
+    { key: "elec", label: "Electricity",     color: "var(--cool-2)", series: idx(DATA.categories.elec) },
+  ];
+
+  const W = 760, H = 600;
+  const m = { top: 32, right: 130, bottom: 46, left: 52 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+
+  const svg = d3.select("#chart5").append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+  const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+
+  // figure out global y range — round up to next 50 so eggs peak fits
+  const allValues = [...headline, ...cats.flatMap(c => c.series)]
+    .map(d => d.v).filter(v => v != null);
+  const yMin = 70;
+  const yMax = Math.ceil(d3.max(allValues) / 50) * 50;
+
+  const x = d3.scaleTime()
+    .domain([parseMonth("2020-01"), parseMonth("2026-07")])
+    .range([0, iw]);
+  const y = d3.scaleLinear().domain([yMin, yMax]).range([ih, 0]);
+
+  g.append("g").attr("class", "grid")
+    .call(d3.axisLeft(y).tickSize(-iw).tickFormat("").ticks(7))
+    .selectAll("line").attr("stroke", "var(--grid)");
+
+  // baseline at 100
+  g.append("line")
+    .attr("x1", 0).attr("x2", iw)
+    .attr("y1", y(100)).attr("y2", y(100))
+    .attr("stroke", "var(--ink-2)").attr("stroke-width", 0.6)
+    .attr("stroke-dasharray", "3 3").attr("opacity", 0.4);
+
+  const line = d3.line()
+    .defined(d => d.v != null)
+    .x(d => x(d.date)).y(d => y(d.v));
+
+  // draw categories first, headline on top
+  cats.forEach(c => {
+    g.append("path").datum(c.series)
+      .attr("class", "cat-line")
+      .attr("stroke", c.color)
+      .attr("d", line);
+  });
+  g.append("path").datum(headline)
+    .attr("class", "cat-line headline")
+    .attr("d", line);
+
+  // axes
+  g.append("g").attr("class", "axis")
+    .attr("transform", `translate(0,${ih})`)
+    .call(d3.axisBottom(x).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("%Y")));
+  g.append("g").attr("class", "axis")
+    .call(d3.axisLeft(y).ticks(7).tickSize(0))
+    .call(sel => sel.select(".domain").remove());
+  g.append("text").attr("class", "axis-title").attr("fill", "var(--mute)")
+    .attr("x", 0).attr("y", -12)
+    .text("Index, Jan 2020 = 100");
+
+  // end-of-line labels — collision-avoid by sorting then pushing apart in both directions
+  const labels = [];
+  cats.forEach(c => {
+    const last = [...c.series].reverse().find(d => d.v != null);
+    if (last) labels.push({ ideal: y(last.v), label: c.label, color: c.color, x: x(last.date) });
+  });
+  const headlineLast = [...headline].reverse().find(d => d.v != null);
+  labels.push({ ideal: y(headlineLast.v), label: "Headline CPI", color: "var(--mute)", x: x(headlineLast.date) });
+
+  labels.sort((a, b) => a.ideal - b.ideal);
+  labels.forEach(L => { L.y = L.ideal; });
+  const minGap = 14;
+  // multiple iterative passes — push down then push up to balance
+  for (let pass = 0; pass < 8; pass++) {
+    for (let i = 1; i < labels.length; i++) {
+      const gap = labels[i].y - labels[i-1].y;
+      if (gap < minGap) labels[i].y = labels[i-1].y + minGap;
+    }
+    for (let i = labels.length - 2; i >= 0; i--) {
+      const gap = labels[i+1].y - labels[i].y;
+      if (gap < minGap) labels[i].y = labels[i+1].y - minGap;
+    }
+  }
+  // clamp to plot bounds
+  labels.forEach(L => { L.y = Math.max(8, Math.min(ih - 4, L.y)); });
+
+  labels.forEach(L => {
+    // tiny leader if label was nudged
+    if (Math.abs(L.y - L.ideal) > 3) {
+      g.append("line")
+        .attr("x1", L.x + 3).attr("x2", L.x + 7)
+        .attr("y1", L.ideal).attr("y2", L.y)
+        .attr("stroke", L.color).attr("stroke-width", 0.6).attr("opacity", 0.5);
+    }
+    g.append("text").attr("class", "cat-label")
+      .attr("x", L.x + 8).attr("y", L.y)
+      .attr("fill", L.color).text(L.label);
+  });
+
+  // annotations: eggs peak, gas peak, march 2026 gas spike
+  function findPeak(series) {
+    return series.filter(d => d.v != null).reduce((a, b) => b.v > a.v ? b : a);
+  }
+  const eggPeak = findPeak(cats.find(c => c.key === "eggs").series);
+  const gasPeak = findPeak(cats.find(c => c.key === "gas").series);
+  const gasMar26 = cats.find(c => c.key === "gas").series.find(d => d.ym === "2026-03");
+
+  function annot(pt, color, dx, dy, anchor, title, body) {
+    const cx = x(pt.date), cy = y(pt.v);
+    const tx = cx + dx, ty = cy + dy;
+    const ag = g.append("g");
+    ag.append("line").attr("class", "annot-line")
+      .attr("x1", cx).attr("y1", cy).attr("x2", tx).attr("y2", ty);
+    ag.append("circle").attr("class", "annot-dot")
+      .attr("cx", cx).attr("cy", cy).attr("r", 3.5)
+      .attr("fill", color);
+    const t = ag.append("text").attr("class", "annot-box")
+      .attr("x", tx + (anchor === "end" ? -6 : 6))
+      .attr("y", ty).attr("text-anchor", anchor || "start");
+    t.append("tspan").attr("class", "title")
+      .attr("x", tx + (anchor === "end" ? -6 : 6)).attr("dy", 0).text(title);
+    body.forEach((s, i) => {
+      t.append("tspan")
+        .attr("x", tx + (anchor === "end" ? -6 : 6))
+        .attr("dy", i === 0 ? 15 : 14)
+        .attr("fill", "var(--ink-2)").text(s);
+    });
+  }
+
+  annot(eggPeak, cssVar("--accent"), 12, 4, "start",
+        `Eggs peak (${d3.timeFormat("%b %Y")(eggPeak.date)})`,
+        [`Index: ${eggPeak.v.toFixed(0)} — bird flu`, "wipes out flocks"]);
+
+  annot(gasPeak, cssVar("--warm-1"), -8, -36, "end",
+        `Gas peak (${d3.timeFormat("%b %Y")(gasPeak.date)})`,
+        [`Index: ${gasPeak.v.toFixed(0)}`, "post-Ukraine invasion"]);
+
+  // Mar 2026 gas spike — place above the line, well clear of end labels
+  annot(gasMar26, cssVar("--warm-1"), -90, -55, "end",
+        "Mar 2026 gas spike",
+        [`Index jumps to ${gasMar26.v.toFixed(0)}`, "+25% month-over-month"]);
+})();
+
+// =========================================================================
+// Chart 6 — wages vs prices
+// =========================================================================
+(function chart6() {
+  const baseYm = "2020-01";
+  // Render-time gap fill — Oct 2025 CPI is null (shutdown).
+  const cpi = fillGaps(indexTo100(DATA.cpi_2016.filter(([ym]) => ym >= "2020-01"), baseYm), ["v"]);
+  const ahe = fillGaps(indexTo100(DATA.ahe_2006.filter(([ym]) => ym >= "2020-01"), baseYm), ["v"]);
+
+  const W = 760, H = 420;
+  const m = { top: 30, right: 110, bottom: 42, left: 50 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+
+  const svg = d3.select("#chart6").append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+  const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+
+  const x = d3.scaleTime()
+    .domain([parseMonth("2020-01"), parseMonth("2026-07")])
+    .range([0, iw]);
+  const y = d3.scaleLinear().domain([98, 136]).range([ih, 0]);
+
+  g.append("g").attr("class", "grid")
+    .call(d3.axisLeft(y).tickSize(-iw).tickFormat("").ticks(6))
+    .selectAll("line").attr("stroke", "var(--grid)");
+
+  // shaded area between lines (gap = wages - prices). Positive = wages ahead.
+  // build a unified series by ym
+  const cpiByYm = new Map(cpi.map(d => [d.ym, d]));
+  const aheByYm = new Map(ahe.map(d => [d.ym, d]));
+  const allYms = [...new Set([...cpiByYm.keys(), ...aheByYm.keys()])].sort();
+  const merged = allYms
+    .map(ym => {
+      const c = cpiByYm.get(ym), a = aheByYm.get(ym);
+      if (!c || !a || c.v == null || a.v == null) return null;
+      return { date: c.date, ym, cpi: c.v, ahe: a.v };
+    })
+    .filter(Boolean);
+
+  const line = d3.line()
+    .defined(d => d.v != null)
+    .x(d => x(d.date)).y(d => y(d.v));
+
+  g.append("path").datum(cpi).attr("class", "price-line").attr("d", line);
+  g.append("path").datum(ahe).attr("class", "wage-line").attr("d", line);
+
+  g.append("g").attr("class", "axis")
+    .attr("transform", `translate(0,${ih})`)
+    .call(d3.axisBottom(x).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat("%Y")));
+  g.append("g").attr("class", "axis")
+    .call(d3.axisLeft(y).ticks(7).tickSize(0))
+    .call(sel => sel.select(".domain").remove());
+  g.append("text").attr("class", "axis-title").attr("fill", "var(--mute)")
+    .attr("x", 0).attr("y", -12)
+    .text("Index, Jan 2020 = 100");
+
+  // labels at ends
+  const cpiLast = cpi[cpi.length - 1];
+  const aheLast = ahe[ahe.length - 1];
+  g.append("text").attr("class", "cat-label")
+    .attr("x", x(cpiLast.date) + 8).attr("y", y(cpiLast.v))
+    .attr("fill", "var(--accent)")
+    .text(`Prices  +${(cpiLast.v - 100).toFixed(1)}%`);
+  g.append("text").attr("class", "cat-label")
+    .attr("x", x(aheLast.date) + 8).attr("y", y(aheLast.v))
+    .attr("fill", "var(--wage)")
+    .text(`Wages  +${(aheLast.v - 100).toFixed(1)}%`);
+
+  // annotation: largest gap (prices ahead)
+  let maxGap = merged[0], maxGapVal = -Infinity;
+  merged.forEach(d => {
+    const gap = d.cpi - d.ahe;
+    if (gap > maxGapVal) { maxGapVal = gap; maxGap = d; }
+  });
+
+  function annot(pt, valKey, color, dx, dy, anchor, title, body) {
+    const cx = x(pt.date), cy = y(pt[valKey]);
+    const tx = cx + dx, ty = cy + dy;
+    const ag = g.append("g");
+    ag.append("line").attr("class", "annot-line")
+      .attr("x1", cx).attr("y1", cy).attr("x2", tx).attr("y2", ty);
+    ag.append("circle").attr("class", "annot-dot")
+      .attr("cx", cx).attr("cy", cy).attr("r", 3.5).attr("fill", color);
+    const t = ag.append("text").attr("class", "annot-box")
+      .attr("x", tx + (anchor === "end" ? -6 : 6))
+      .attr("y", ty).attr("text-anchor", anchor || "start");
+    t.append("tspan").attr("class", "title")
+      .attr("x", tx + (anchor === "end" ? -6 : 6)).attr("dy", 0).text(title);
+    body.forEach((s, i) => {
+      t.append("tspan")
+        .attr("x", tx + (anchor === "end" ? -6 : 6))
+        .attr("dy", i === 0 ? 15 : 14)
+        .attr("fill", "var(--ink-2)").text(s);
+    });
+  }
+  annot(maxGap, "cpi", "var(--accent)", -10, -36, "end",
+        `Widest gap (${d3.timeFormat("%b %Y")(maxGap.date)})`,
+        [`Prices ahead by ${maxGapVal.toFixed(1)} pts`, "Wages losing ground"]);
+})();
+
+// =========================================================================
+// Chart 7 — feels-vs-is small multiples (2x3)
+// =========================================================================
+(function chart7() {
+  // Render-time gap fill — Oct 2025 is null in yoy and cum20 due to shutdown.
+  const since = fillGaps(ALLCPI.filter(d => d.ym >= "2020-01"), ["yoy", "cum20"]);
+  const years = [2020, 2021, 2022, 2023, 2024, 2025];
+
+  const W = 760, H = 540;
+  const cols = 3, rows = 2;
+  const outer = { top: 18, right: 16, bottom: 24, left: 36 };
+  const gapX = 30, gapY = 32;
+  const panelW = (W - outer.left - outer.right - gapX * (cols - 1)) / cols;
+  const panelH = (H - outer.top - outer.bottom - gapY * (rows - 1)) / rows;
+
+  const svg = d3.select("#chart7").append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+
+  // Shared scales — used across panels for honest comparison
+  const yoyMax = 10, yoyMin = 0;
+  const cumMax = 30, cumMin = 0;
+
+  const cumXFull = d3.scaleTime()
+    .domain([parseMonth("2020-01"), parseMonth("2026-07")]);
+
+  years.forEach((yr, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const px = outer.left + col * (panelW + gapX);
+    const py = outer.top + row * (panelH + gapY);
+    drawPanel(svg, px, py, panelW, panelH, yr, since, {
+      yoyMax, yoyMin, cumMax, cumMin, cumXFull,
+      isFirstCol: col === 0,
+      isLastRow: row === rows - 1,
+    });
+  });
+
+  function drawPanel(svg, px, py, w, h, year, allData, opts) {
+    const g = svg.append("g").attr("transform", `translate(${px},${py})`);
+
+    // Title
+    g.append("text").attr("class", "panel-title")
+      .attr("x", 0).attr("y", -4).text(String(year));
+
+    const topH = h * 0.40;
+    const dividerY = topH + 14;
+    const botY = dividerY + 4;
+    const botH = h - botY;
+
+    // ---- Top: this year's monthly YoY ----
+    const yearData = allData.filter(d => d.ym.startsWith(String(year)) && d.yoy != null);
+    const monthScale = d3.scaleBand()
+      .domain(d3.range(1, 13).map(m => `${year}-${String(m).padStart(2, "0")}`))
+      .range([0, w]).padding(0.25);
+    const yoyY = d3.scaleLinear().domain([opts.yoyMin, opts.yoyMax]).range([topH, 0]);
+
+    // baseline
+    g.append("line")
+      .attr("x1", 0).attr("x2", w)
+      .attr("y1", yoyY(0)).attr("y2", yoyY(0))
+      .style("stroke", "var(--cum-bg)").attr("stroke-width", 0.5);
+
+    g.selectAll(".panel-bar").data(yearData).enter().append("rect")
+      .attr("class", "panel-bar")
+      .attr("x", d => monthScale(d.ym))
+      .attr("width", monthScale.bandwidth())
+      .attr("y", d => yoyY(d.yoy))
+      .attr("height", d => yoyY(0) - yoyY(d.yoy))
+      .attr("fill", "var(--mute)");
+
+    // y axis (shared) — only on first column
+    if (opts.isFirstCol) {
+      g.append("g").attr("class", "panel-axis")
+        .call(d3.axisLeft(yoyY).ticks(3).tickFormat(d => d + "%").tickSize(-w))
+        .call(sel => {
+          sel.select(".domain").remove();
+          sel.selectAll("line").style("stroke", "var(--grid)").attr("stroke-dasharray", "2 3");
+        });
+    }
+    // sublabel
+    g.append("text").attr("class", "panel-sublabel")
+      .attr("x", w).attr("y", -4).attr("text-anchor", "end")
+      .text("Monthly YoY");
+
+    // ---- Divider ----
+    g.append("line").attr("class", "panel-divider")
+      .attr("x1", 0).attr("x2", w)
+      .attr("y1", dividerY).attr("y2", dividerY);
+
+    // ---- Bottom: cumulative since 2020, this year highlighted ----
+    const cumX = opts.cumXFull.copy().range([0, w]);
+    const cumY = d3.scaleLinear().domain([opts.cumMin, opts.cumMax])
+      .range([botY + botH, botY]);
+
+    const cumLine = d3.line()
+      .defined(d => d.cum20 != null)
+      .x(d => cumX(d.date)).y(d => cumY(d.cum20));
+
+    g.append("path").datum(allData)
+      .attr("class", "panel-cum-bg").attr("d", cumLine);
+
+    const yearSeg = allData.filter(d => d.ym.startsWith(String(year)) && d.cum20 != null);
+    if (yearSeg.length) {
+      // include the boundary points so the segment connects to neighbors
+      const idx = allData.findIndex(d => d === yearSeg[0]);
+      const segWithBoundary = allData.slice(Math.max(0, idx - 1), idx + yearSeg.length + 1);
+      g.append("path").datum(segWithBoundary)
+        .attr("class", "panel-cum-fg").attr("d", cumLine);
+    }
+
+    // y axis (shared) — first column only
+    if (opts.isFirstCol) {
+      g.append("g").attr("class", "panel-axis")
+        .call(d3.axisLeft(cumY).ticks(3).tickFormat(d => d + "%").tickSize(-w))
+        .call(sel => {
+          sel.select(".domain").remove();
+          sel.selectAll("line").style("stroke", "var(--grid)").attr("stroke-dasharray", "2 3");
+        });
+    }
+    g.append("text").attr("class", "panel-sublabel")
+      .attr("x", w).attr("y", dividerY + 14).attr("text-anchor", "end")
+      .text("Cumulative since 2020");
+
+    // x axis on bottom row only
+    if (opts.isLastRow) {
+      g.append("g").attr("class", "panel-axis")
+        .attr("transform", `translate(0,${botY + botH})`)
+        .call(d3.axisBottom(cumX).ticks(d3.timeYear.every(2)).tickFormat(d3.timeFormat("'%y")).tickSize(3));
+    }
+  }
+})();
+
+// =========================================================================
+// Chart 8 — $100 since 1990
+// =========================================================================
+(function chart8() {
+  const series = DATA.cpi_1990.filter(([, v]) => v != null);
+  const base = series[0][1]; // Jan 1990 CPI
+  const data = series.map(([ym, v]) => ({
+    date: parseMonth(ym), ym, pp: 100 * base / v,
+  }));
+
+  const W = 760, H = 380;
+  const m = { top: 30, right: 90, bottom: 42, left: 56 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+
+  const svg = d3.select("#chart8").append("svg")
+    .attr("viewBox", `0 0 ${W} ${H}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
+  const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+
+  const x = d3.scaleTime()
+    .domain(d3.extent(data, d => d.date))
+    .range([0, iw]);
+  const y = d3.scaleLinear().domain([35, 102]).range([ih, 0]);
+
+  g.append("g").attr("class", "grid")
+    .call(d3.axisLeft(y).tickSize(-iw).tickFormat("").ticks(6))
+    .selectAll("line").attr("stroke", "var(--grid)");
+
+  const area = d3.area().x(d => x(d.date)).y0(ih).y1(d => y(d.pp));
+  const line = d3.line().x(d => x(d.date)).y(d => y(d.pp));
+  g.append("path").datum(data).attr("class", "pp-area").attr("d", area);
+  g.append("path").datum(data).attr("class", "pp-line").attr("d", line);
+
+  g.append("g").attr("class", "axis")
+    .attr("transform", `translate(0,${ih})`)
+    .call(d3.axisBottom(x).ticks(d3.timeYear.every(5)).tickFormat(d3.timeFormat("%Y")));
+  g.append("g").attr("class", "axis")
+    .call(d3.axisLeft(y).ticks(6).tickFormat(d => "$" + d).tickSize(0))
+    .call(sel => sel.select(".domain").remove());
+
+  // reference dots: 1990, 2000, 2008, 2020, latest
+  const refs = [
+    { ym: "1990-01", note: "Jan 1990",  side: "right" },
+    { ym: "2000-01", note: "Jan 2000",  side: "right" },
+    { ym: "2008-01", note: "Jan 2008",  side: "right" },
+    { ym: "2020-01", note: "Jan 2020",  side: "right" },
+    { ym: data[data.length - 1].ym, note: "Jul 2026", side: "left" },
+  ].map(r => {
+    const d = data.find(p => p.ym === r.ym);
+    return { ...r, date: d.date, pp: d.pp };
+  });
+
+  refs.forEach(r => {
+    g.append("circle")
+      .attr("cx", x(r.date)).attr("cy", y(r.pp)).attr("r", 4)
+      .attr("fill", "var(--accent)").attr("stroke", "var(--bg)").attr("stroke-width", 2);
+  });
+
+  // value callouts at start and end (big)
+  const first = refs[0], last = refs[refs.length - 1];
+  const startLabel = g.append("text").attr("class", "callout")
+    .attr("x", x(first.date) + 10).attr("y", y(first.pp) - 8);
+  startLabel.append("tspan").attr("class", "big").text("$100.00");
+  startLabel.append("tspan")
+    .attr("x", x(first.date) + 10).attr("dy", 14)
+    .attr("fill", "var(--mute)").text("January 1990");
+
+  const endLabel = g.append("text").attr("class", "callout")
+    .attr("x", x(last.date) + 10).attr("y", y(last.pp) + 4);
+  endLabel.append("tspan").attr("class", "big").text("$" + last.pp.toFixed(2));
+  endLabel.append("tspan")
+    .attr("x", x(last.date) + 10).attr("dy", 14)
+    .attr("fill", "var(--mute)").text("July 2026");
+
+  // small year labels for the in-between reference dots
+  refs.slice(1, -1).forEach(r => {
+    g.append("text")
+      .attr("x", x(r.date) + 6).attr("y", y(r.pp) - 6)
+      .attr("font-size", 11).attr("fill", "var(--ink-2)")
+      .text(`${r.note}: $${r.pp.toFixed(2)}`);
+  });
+})();
+</script>
+</body>
+</html>
